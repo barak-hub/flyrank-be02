@@ -41,26 +41,38 @@ class TaskOut(Task):
 tasks: list[dict] = []
 next_id = 1
 
+def row_to_dict(row):
+    return {"id": row[0], "title": row[1], "done": bool(row[2])}
+
 @app.get("/tasks")
 def get_tasks():
-    return tasks
+    conn = get_connection()
+    rows = conn.execute("SELECT * FROM tasks").fetchall()
+    conn.close()
+    return [row_to_dict(r) for r in rows]
 
 @app.get("/tasks/{task_id}")
 def get_task(task_id: int):
-    for t in tasks:
-        if t["id"] == task_id:
-            return t
-    raise HTTPException(status_code=404, detail="Task not found")
+    conn = get_connection()
+    row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+    conn.close()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return row_to_dict(row)
 
 @app.post("/tasks", status_code=201)
 def create_task(task: Task):
-    global next_id
     if not task.title.strip():
         raise HTTPException(status_code=400, detail="Title is required")
-    new_task = {"id": next_id, "title": task.title, "done": task.done}
-    tasks.append(new_task)
-    next_id += 1
-    return new_task
+    conn = get_connection()
+    cur = conn.execute(
+        "INSERT INTO tasks (title, done) VALUES (?, ?)",
+        (task.title, int(task.done))
+    )
+    conn.commit()
+    new_id = cur.lastrowid
+    conn.close()
+    return {"id": new_id, "title": task.title, "done": task.done}
 
 @app.put("/tasks/{task_id}")
 def update_task(task_id: int, task: Task):
