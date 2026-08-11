@@ -38,9 +38,6 @@ class Task(BaseModel):
 class TaskOut(Task):
     id: int
 
-tasks: list[dict] = []
-next_id = 1
-
 def row_to_dict(row):
     return {"id": row[0], "title": row[1], "done": bool(row[2])}
 
@@ -76,19 +73,29 @@ def create_task(task: Task):
 
 @app.put("/tasks/{task_id}")
 def update_task(task_id: int, task: Task):
-    for t in tasks:
-        if t["id"] == task_id:
-            if not task.title.strip():
-                raise HTTPException(status_code=400, detail="Title is required")
-            t["title"] = task.title
-            t["done"] = task.done
-            return t
-    raise HTTPException(status_code=404, detail="Task not found")
+    if not task.title.strip():
+        raise HTTPException(status_code=400, detail="Title is required")
+    conn = get_connection()
+    row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+    if row is None:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Task not found")
+    conn.execute(
+        "UPDATE tasks SET title = ?, done = ? WHERE id = ?",
+        (task.title, int(task.done), task_id)
+    )
+    conn.commit()
+    conn.close()
+    return {"id": task_id, "title": task.title, "done": task.done}
 
 @app.delete("/tasks/{task_id}", status_code=204)
 def delete_task(task_id: int):
-    for i, t in enumerate(tasks):
-        if t["id"] == task_id:
-            tasks.pop(i)
-            return
-    raise HTTPException(status_code=404, detail="Task not found")
+    conn = get_connection()
+    row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+    if row is None:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Task not found")
+    conn.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+    conn.commit()
+    conn.close()
+    return
