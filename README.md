@@ -1,27 +1,36 @@
-# FlyRank BE-02 — Connecting your CRUD to the database
+# FlyRank BE-03 — Containerizing the stack with Postgres
 
-A task CRUD API built with FastAPI, migrated from an in-memory list to a real SQLite database. The API's endpoints, request bodies, and responses are unchanged from the in-memory version — only the storage layer moved from memory to disk.
+A task CRUD API built with FastAPI, now running against a real PostgreSQL
+database in Docker instead of SQLite. The API's endpoints, request bodies,
+and responses are unchanged from the SQLite version (BE-02) — only the
+storage layer moved from a local file to a containerized database server.
 
-## Why SQLite
+## Why Postgres in Docker
 
-Postgres and similar databases require a separate server — installing it, starting it, creating a username and password, and connecting to it before you can even begin. SQLite needs none of that. It's just a single file (`tasks.db`) that gets created automatically the first time the app runs, with no server, no install, and no credentials to manage.
-
-## Where the database lives
-
-The database is a single file, `tasks.db`, created automatically in the project root the first time the app runs. It's git-ignored, so a fresh clone starts empty and regenerates the database (with three seeded example tasks) on first launch.
+SQLite was a single file — simple, but not how real backends run in
+production. Postgres is a proper database server, the same kind that
+powers most real companies. Instead of installing Postgres directly on
+this machine, it runs inside a Docker container: a throwaway, reproducible
+environment that behaves identically on any machine.
 
 ## How to run this project
+
+One command starts the whole stack — the API and the database together:
 
 ```bash
 git clone https://github.com/barak-hub/flyrank-be02.git
 cd flyrank-be02
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-python3 -m uvicorn main:app --reload
+cp .env.example .env
+docker compose up
 ```
 
 The API will be running at `http://localhost:8000`.
+
+## Environment variables
+
+Copy `.env.example` to `.env` before running by hand outside Docker.
+Inside `docker compose`, the `DATABASE_URL` is set directly in
+`compose.yaml` and points at the `db` service rather than `localhost`.
 
 ## Endpoints
 
@@ -33,20 +42,38 @@ The API will be running at `http://localhost:8000`.
 | PUT | `/tasks/{id}` | Update a task |
 | DELETE | `/tasks/{id}` | Delete a task |
 
-## Exploring the database by hand
+## Example request
 
-The database can be opened directly in [DB Browser for SQLite](https://sqlitebrowser.org/) — no need to go through the API. Changes made there are picked up by the running API immediately, with no restart, since both are reading the same file.
-
-![tasks table in DB Browser](db-browser-screenshot.png)
-
-**Example query:**
-```sql
-UPDATE tasks SET done = 1 WHERE id = 2;
+```bash
+curl -i http://localhost:8000/tasks
 ```
-This marked task 2 ("Walk the dog") as completed directly in the database. After clicking "Write Changes" in DB Browser, calling `GET /tasks` through the running API immediately showed `"done": true` for that task — with no server restart required.
 
-## What changed vs. what didn't
+```
+HTTP/1.1 200 OK
+content-type: application/json
 
-- The API's routes, request bodies, and response shapes are identical to the in-memory version.
-- Only the storage layer changed: an in-memory Python list became a SQLite database accessed through parameterized SQL queries.
-- All queries use `?` placeholders instead of string formatting, to avoid SQL injection.
+[{"id":1,"title":"Buy groceries","done":false},{"id":2,"title":"Walk the dog","done":false},{"id":3,"title":"Write README","done":false}]
+```
+
+## Exploring the database directly
+
+With the stack running, connect to Postgres via psql inside the container:
+
+```bash
+docker exec -it flyrank-be02-db-1 psql -U postgres -d tasks -c "SELECT * FROM tasks;"
+```
+
+![tasks table in psql](db-screenshot.png)
+
+## What changed vs. BE-02
+
+- The API's routes, request bodies, and response shapes are identical to
+  the SQLite version.
+- Only the storage layer changed: SQLite became Postgres, accessed via
+  `psycopg` instead of the built-in `sqlite3` module.
+- All queries use `%s` placeholders (psycopg's parameter style) instead
+  of string formatting, to avoid SQL injection.
+- `INSERT` now uses `RETURNING id` to get the new row's ID, replacing
+  SQLite's `cur.lastrowid`.
+- The whole stack — app and database — now starts with a single
+  `docker compose up`, instead of running Python and a local file by hand.
