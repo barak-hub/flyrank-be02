@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import psycopg
 import os
+from supabase import create_client, Client
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -9,6 +10,9 @@ load_dotenv()
 app = FastAPI()
 
 DATABASE_URL = os.environ["DATABASE_URL"]
+SUPABASE_URL = os.environ["SUPABASE_URL"]
+SUPABASE_KEY = os.environ["SUPABASE_KEY"]
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def get_connection():
     return psycopg.connect(DATABASE_URL)
