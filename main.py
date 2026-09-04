@@ -123,10 +123,10 @@ def delete_task(task_id: int):
 
 # Auth routes
 class AuthRequest(BaseModel):
-    email: str
-    password: str
+    email: str | None = None
+    password: str | None = None
 
-@app.post("/auth/signup")
+@app.post("/auth/signup", status_code=201)
 def signup(request: AuthRequest):
     if not request.email or not request.password:
         raise HTTPException(status_code=400, detail="Email and password required")
