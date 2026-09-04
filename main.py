@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import psycopg
@@ -9,6 +10,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI()
+
+security = HTTPBearer()
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 SUPABASE_URL = os.environ["SUPABASE_URL"]
@@ -144,14 +147,10 @@ def public_info():
     return {"message": "Welcome stranger! This info is public."}
 
 
-def get_current_user(authorization: str | None = Header(default=None)):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401,
-            detail="Access token required"
-        )
-
-    token = authorization.replace("Bearer ", "", 1).strip()
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    token = credentials.credentials
 
     if not token:
         raise HTTPException(
