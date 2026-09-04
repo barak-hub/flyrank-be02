@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import psycopg
@@ -144,36 +144,50 @@ def public_info():
     return {"message": "Welcome stranger! This info is public."}
 
 
-@app.get("/protected/profile")
-def protected_profile(authorization: str | None = Header(default=None)):
+def get_current_user(authorization: str | None = Header(default=None)):
     if not authorization or not authorization.startswith("Bearer "):
-        return JSONResponse(
+        raise HTTPException(
             status_code=401,
-            content={"error": "Access token required"}
+            detail="Access token required"
         )
 
     token = authorization.replace("Bearer ", "", 1).strip()
 
     if not token:
-        return JSONResponse(
+        raise HTTPException(
             status_code=401,
-            content={"error": "Access token required"}
+            detail="Access token required"
         )
 
     try:
         response = supabase.auth.get_user(token)
-        user = response.user
-
-        return {
-            "id": user.id,
-            "email": user.email,
-            "created_at": user.created_at
-        }
-
+        return response.user
     except Exception:
-        return JSONResponse(
+        raise HTTPException(
             status_code=401,
-            content={"error": "Invalid or expired token"}
+            detail="Invalid or expired token"
         )
 
+
+@app.get("/protected/profile")
+def protected_profile(user=Depends(get_current_user)):
+    return {
+        "id": user.id,
+        "email": user.email,
+        "created_at": user.created_at
+    }
+
    
+
+
+@app.post("/auth/logout", status_code=204)
+def logout(user=Depends(get_current_user)):
+    supabase.auth.sign_out()
+
+@app.get("/protected/dashboard")
+def protected_dashboard(user=Depends(get_current_user)):
+    return {
+        "message": "Welcome to your dashboard",
+        "user_id": user.id,
+        "email": user.email
+    }
