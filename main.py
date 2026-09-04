@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import psycopg
 import os
@@ -137,3 +138,29 @@ def login(request: AuthRequest):
     if not response.session:
         raise HTTPException(status_code=401, detail="Invalid login credentials")
     return {"access_token": response.session.access_token, "refresh_token": response.session.refresh_token}
+
+@app.get("/public/info")
+def public_info():
+    return {"message": "Welcome stranger! This info is public."}
+
+
+@app.get("/protected/profile")
+def protected_profile(authorization: str | None = Header(default=None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Access token required"}
+        )
+
+    token = authorization.replace("Bearer ", "", 1).strip()
+
+    if not token:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Access token required"}
+        )
+
+    return {
+        "message": "Protected profile",
+        "token_received": True
+    }
