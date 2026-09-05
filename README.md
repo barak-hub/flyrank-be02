@@ -1,4 +1,9 @@
-# FlyRank BE-02 — FastAPI Auth & Protected Routes
+## Running the API
+
+Start the FastAPI server with:
+
+```bash
+uvicorn main:app --reload --port 8001# FlyRank BE-02 — FastAPI Auth & Protected Routes
 
 A FastAPI backend with Supabase authentication, JWT-protected routes, reusable authentication dependencies, and Swagger Bearer authentication.
 
@@ -31,3 +36,10 @@ Clone the repository:
 ```bash
 git clone https://github.com/barak-hub/flyrank-be02.git
 cd flyrank-be02
+
+## Running the API
+
+Start the FastAPI server with:
+
+```bash
+uvicorn main:app --reload --port 8001
